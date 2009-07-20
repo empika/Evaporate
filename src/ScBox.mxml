@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Box xmlns:mx="http://www.adobe.com/2006/mxml" width="98%" height="100"
+	paddingTop="5" paddingBottom="5"
+	paddingLeft="5" paddingRight="5">
+
+		<mx:VBox paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5"
+			width="100%" height="90" backgroundColor="#F0F6FB"
+			borderStyle="solid" borderColor="#FFFFFF" cornerRadius="10"
+			>
+			<mx:Text width="90%" height="40" text="{data.title}" textAlign="left"/>
+			<mx:ProgressBar width="90%" labelPlacement="left" label="Uploading" enabled="true"
+				id="progressBar" indeterminate="false" mode="manual"/>
+		</mx:VBox>
+
+</mx:Box>

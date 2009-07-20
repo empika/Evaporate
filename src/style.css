@@ -1,0 +1,65 @@
+/* CSS file */
+
+Text
+{
+	color: #333333;
+	fontFamily: Arial;
+	fontSize: 14;
+	fontWeight: normal;
+	textAlign: center;
+}
+Label
+{
+	color: #333333;
+	fontFamily: Arial;
+	fontSize: 12;
+	fontWeight: normal;
+	textAlign: right;
+}
+
+
+Button{
+	 font-family: "Arial";
+	 border-color: #FFFFFF;
+	 fill-alphas: 1.0, 1.0;
+	 fill-colors: #FFFFFF, #C6C6C6, #C6C6C6, #FFFFFF;
+	 font-weight: "bold";
+	 color: #333333;
+	 theme-color: #888888;
+	 alpha: 1.0;
+}
+
+Canvas{
+	background-color: #F0F6FB;
+	border-style: solid;
+	border-color: #FFFFFF;
+	corner-radius: 10;
+	alpha: 1.0;
+}
+
+VBox{
+	background-color: #F0F6FB;
+	border-style: solid;
+	border-color: #FFFFFF;
+	corner-radius: 10;
+	alpha: 1.0;
+	padding-bottom: 10;
+	padding-left: 10;
+	padding-right: 10;
+	padding-top: 10;
+}
+HBox{
+	padding-bottom: 10;
+	padding-left: 5;
+	padding-right: 5;
+	padding-top: 10;
+}
+
+Canvas.error{
+	background-color: #FF5500;
+}
+Text.error
+{
+	textAlign: left;
+	color: #FFFFFF;
+}

@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:WindowedApplication xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute"
+	width="800" height="500" currentState="authorize_app"
+	backgroundColor="#FFFFFF"
+	creationComplete="initApp();" xmlns:Components="Components.*">
+	
+
+	<mx:Script>
+		<![CDATA[
+			import com.hurlant.util.der.Integer;
+			import mx.events.ListEvent;
+			import mx.collections.ArrayCollection;
+			
+			import com.empika.*;
+			import flash.events.*;
+			import mx.effects.easing.Bounce;
+			import mx.controls.Alert;
+			
+			// SoundCloud keys
+			private var consumerKey:String			= "0LHPvHxYRAzvWqydP14lkQ";
+			private var consumerSecret:String		= "W4PDY7X1PCjw5B55ZFHT3TV5SQ3zfPog4SztqKJ6c8c";
+			// Our Wrapper object
+			public var swc: SoundCloudWrapper = new SoundCloudWrapper(consumerKey,consumerSecret, true);
+			
+			private var fileReferenceList: FileReferenceList = new FileReferenceList();
+			
+			[Bindable]
+			private var fileCollection: ArrayCollection;
+			
+			private var filePropertiesCollection: ArrayCollection = new ArrayCollection();
+			
+			private function initApp():void{
+				if( this.swc.has_access() == true ){
+					this.currentState = "main_app";
+					this.btnChoose.addEventListener(MouseEvent.CLICK, chooseFiles);
+				}
+				else{
+					this.btnAuth.addEventListener(MouseEvent.CLICK, swcRequest);
+				}
+			}
+			
+			// called first off when we get the Request token
+			private function swcRequest(event: MouseEvent):void{
+				this.swc.addEventListener(SoundCloudWrapperDataEvent.AUTHORIZED, swcRequestComplete);
+				this.swc.getRequest();
+			}
+			
+			// called when the app has been authorized
+			private function swcRequestComplete( event: SoundCloudWrapperDataEvent):void{
+				trace("authorized");
+				this.btnAuth.removeEventListener(MouseEvent.CLICK, swcRequest);
+				this.currentState = "access_app";
+				this.btnAuth.addEventListener(MouseEvent.CLICK, swcAccess);
+			}
+			
+			// called when we have the request token, now we get the access token
+			// which we store to use in the future
+			private function swcAccess( event: MouseEvent ):void{
+				this.swc.addEventListener(SoundCloudWrapperDataEvent.ACCESS, swcAccessComplete);
+				this.swc.addEventListener(SoundCloudWrapperDataEvent.ERROR, swcAccessError);
+				this.swc.getAccess();
+			}
+			
+			private function swcAccessComplete( event: SoundCloudWrapperDataEvent ):void{
+				this.btnAuth.removeEventListener(MouseEvent.CLICK, swcAccessComplete);
+				this.currentState = "main_app";
+				this.btnChoose.addEventListener(MouseEvent.CLICK, chooseFiles);
+			}
+			
+			private function swcAccessError( event: SoundCloudWrapperDataEvent ):void{
+				trace( event.error );
+				//System.setClipboard(event.error);
+				//Alert.show(event.error + "\n\n The error has been copied to the clipboard", "Uh oh!", 4, this);
+				this.currentState = "access_error";
+				this.txtAccessError.text = event.error;
+				this.btnAuth.removeEventListener(MouseEvent.CLICK, swcAccess);
+				this.btnAuth.addEventListener(MouseEvent.CLICK, swcRequest);
+			}
+			
+			/*
+			* 
+			* meat of the app from here on in
+			* 
+			*/
+			
+			private function chooseFiles( event: MouseEvent):void{
+				this.fileReferenceList.addEventListener(Event.SELECT, selectedFiles);
+				this.fileReferenceList.browse();
+			}
+			
+			private function selectedFiles( event: Event):void{
+				var files:FileReferenceList = FileReferenceList(event.target);
+    			var selectedFileArray:Array = files.fileList;
+				if( selectedFileArray.length > 0 )
+				{
+					var fileArray: Array = new Array();
+					for each( var file:FileReference in selectedFileArray )
+					{
+						//trace( file.name.toString() );
+						//var filePanel:scFilePanel = new scFilePanel();
+						//filePanel.fileReference = file;
+						//this.fileCollection.addItem( filePanel );
+						//this.theVbox.addChild( filePanel );
+						var fileObj: Object = {fileName: file.name.toString(), fileRef: file,
+												title: file.name.toString(), description: "", sharing: "Private",
+												downloadable: "No", bpm: 0};
+						fileArray[fileArray.length] = fileObj;
+						//this.fileCollection.addItem( fileObj );
+					}
+					this.fileCollection = new ArrayCollection( fileArray );
+					this.fileReferenceList = files;
+					this.btnUpload.enabled = true;
+				}
+			}
+			
+			private function getSetItemProperties( event: ListEvent):void{
+				//trace( event.target.toString() );
+				trace( event.rowIndex );
+				this.txtTitle.text = this.fileCollection[event.rowIndex].title;
+				this.txtDescription.text = this.fileCollection[event.rowIndex].description;
+				this.stepperBpm.value = this.fileCollection[event.rowIndex].bpm;
+				if( this.fileCollection[event.rowIndex].downloadable == "Yes" ){
+					this.radioDownloadYes.selected = true;
+				}
+				else{
+					this.radioDownloadNo.selected = true;
+				}
+				
+				if( this.fileCollection[event.rowIndex].sharing == "Private" ){
+					this.radioSharingPrivate.selected = true;
+				}
+				else{
+					this.radioSharingPublic.selected = true;
+				}
+			}
+			
+			private function setTitle(event: Event):void{
+				this.fileCollection[this.tileList.selectedIndex].title = event.target.text;
+			}
+
+			private function setDescription(event: Event):void{
+				this.fileCollection[this.tileList.selectedIndex].description = event.target.text;
+			}
+
+			private function setDownloadable(event: Event):void{
+				this.fileCollection[this.tileList.selectedIndex].downloadable = event.target.selectedValue;
+			}
+			
+			private function setSharing(event: Event):void{
+				this.fileCollection[this.tileList.selectedIndex].sharing = event.target.selectedValue;
+			}
+			
+			private function setBpm(event: Event):void{
+				this.fileCollection[this.tileList.selectedIndex].bpm = event.target.value;
+			}
+
+			private function uploadFiles(event: MouseEvent):void{
+				var x:int = 0;
+				var renderers:Array = this.tileList.renderers;
+				for( x = 0; x < this.fileCollection.length; x++){
+					var theFileRef: FileReference = this.fileCollection[x].fileRef as FileReference;
+					this.tileList.selectedIndex = x;
+					trace("child: " + this.tileList.getChildAt(x));
+					
+					var scBox:ScBox = renderers[x][0] as ScBox;
+					scBox.progressBar.minimum = 0;
+					scBox.progressBar.maximum = theFileRef.size;
+					
+					renderers[x][0].progressBar.minimum = 0;
+					renderers[x][0].progressBar.maximum = theFileRef.size;
+					
+					//theFileRef.addEventListener(DataEvent.UPLOAD_COMPLETE_DATA, uploadComplete);
+					
+					theFileRef.addEventListener(HTTPStatusEvent.HTTP_RESPONSE_STATUS, traceHTTPUpload );
+					theFileRef.addEventListener(ProgressEvent.PROGRESS, progressHandler);
+					this.swc.addEventListener( SoundCloudWrapperDataEvent.LOADED, uploadComplete);
+					//this.swc.addEventListener( SoundCloudWrapperDataEvent.ERROR, getResourceError);
+					var boolDownloadable:Boolean = false;
+					var boolSharing:Boolean = false;
+					if( this.fileCollection[x].downloadable == "Yes" ){
+						boolDownloadable = true;
+					}
+					this.swc.postResource("tracks", "track[title]=" + this.fileCollection[x].title +
+											"&track[description]=" + this.fileCollection[x].description +
+											"&track[downloadable]=" + boolDownloadable.toString() +
+											"&track[sharing]=" + this.fileCollection[x].sharing.toLowerCase +
+											"&track[bpm]=" + this.fileCollection[x].bpm.toString(), theFileRef);
+					
+				}
+			}
+			
+			private function uploadComplete( event: SoundCloudWrapperDataEvent ):void{
+				trace( "uploaded: " + event.fileRef.name);
+			}
+			private function traceHTTPUpload( event: HTTPStatusEvent):void{
+				//trace( event.responseHeaders );
+				for each( var ar: URLRequestHeader in event.responseHeaders )
+				{
+					trace( ar.name + " : " + ar.value );
+					//if( ar.name == "Location" )
+					//{
+					//	var arrayT: Array = ar.value.split( /.*\// );
+					//	trace( arrayT[1] );
+					//  postTrackAsset( arrayT[1] );
+					//}
+				}
+			}
+			
+			public function progressHandler( event:ProgressEvent ):void
+			{
+				// bloop bloop bloop BLOOP!
+				trace(event.target.name + " - " + event.bytesLoaded + " / " + event.bytesTotal );
+				var renderers:Array = this.tileList.renderers;
+				var x: int;
+				for( x = 0; x < this.tileList.dataProvider.length; x++ ){
+					if( renderers[x].length > 0 ){
+						if( this.tileList.dataProvider[x].fileName == event.target.name ){
+							//trace("minimum: " + renderers[x][0].progressBar.minimum );
+							//renderers[x][0].progressBar.maximum = event.bytesTotal;
+							//renderers[x][0].progressBar.minimum = 0;
+							//renderers[x][0].progressBar.value = event.bytesLoaded;
+							renderers[x][0].progressBar.setProgress( event.bytesLoaded, event.bytesTotal );
+						}
+					}
+				}
+				//this.tileList.data
+			}
+			
+		]]>
+	</mx:Script>
+	
+    
+    
+	<mx:SetStyle name="backgroundGradientAlphas" value="[1.0, 1.0]"/>
+	<mx:SetStyle name="backgroundGradientColors" value="[#FFFFFF, #FFFFFF]"/>
+	
+	<mx:states>
+		<mx:State name="authorize_app">
+			<mx:AddChild position="lastChild">
+				<mx:Button label="Authorize Application" x="224" width="350" height="100" y="101" fontFamily="Arial" fontSize="28" cornerRadius="50" borderColor="#E3E3E3" fillAlphas="[1.0, 1.0]" fillColors="[#FFFFFF, #C6C6C6, #C6C6C6, #FFFFFF]" fontWeight="bold" id="btnAuth" color="#333333" themeColor="#888888" alpha="1.0"/>
+			</mx:AddChild>
+			<mx:AddChild position="lastChild">
+				<mx:Canvas x="149.5" y="209" width="499" height="105" borderColor="#FFFFFF" borderStyle="solid" backgroundColor="#F0F6FB" cornerRadius="10" alpha="1.0" id="canvasMessage">
+					<mx:Text x="16" y="12" text="Please authorise Evaporate by clicking the button above. You will be taken to the SoundCloud website where you need to allow access for Evaporate, afterward retrun here and click the 'Start the app!' button to start uploading tracks!"
+						height="81" width="467" fontFamily="Arial" fontSize="14" textAlign="center" id="txtMessage"
+						 color="#333333"/>
+				</mx:Canvas>
+			</mx:AddChild>
+		</mx:State>
+		
+		<mx:State name="main_app">
+			<mx:AddChild position="lastChild">
+				<mx:Button x="121" y="10" label="Choose files..." width="125" height="41" cornerRadius="20" id="btnChoose" fontSize="13"/>
+			</mx:AddChild>
+			<mx:AddChild position="lastChild">
+				<mx:VBox x="393" y="10" width="395" height="459" id="vboxFileProperties">
+					<mx:HBox width="100%">
+						<mx:Label text="Title" fontWeight="bold" width="100"/>
+						<mx:TextInput width="100%" id="txtTitle" change="setTitle(event)"/>
+					</mx:HBox>
+					<mx:HBox width="100%">
+						<mx:Label text="Description" fontWeight="bold" width="100"/>
+						<mx:TextArea width="100%" height="100" wordWrap="true" id="txtDescription" change="setDescription(event)"/>
+					</mx:HBox>
+					<mx:HBox width="100%">
+						<mx:Label text="Downloadable?" fontWeight="bold" width="100"/>
+						<mx:RadioButtonGroup id="radioGroupDownload" change="setDownloadable(event)"/>
+						<mx:RadioButton label="Yes" groupName="radioGroupDownload" id="radioDownloadYes"/>
+						<mx:RadioButton label="No" groupName="radioGroupDownload" id="radioDownloadNo"/>
+					</mx:HBox>
+					<mx:HBox width="100%">
+						<mx:Label text="Sharing" fontWeight="bold" width="100"/>
+						<mx:RadioButtonGroup id="radioGroupSharing" change="setSharing(event)"/>
+						<mx:RadioButton label="Public" groupName="radioGroupSharing" id="radioSharingPublic"/>
+						<mx:RadioButton label="Private" groupName="radioGroupSharing" id="radioSharingPrivate"/>
+					</mx:HBox>
+					<mx:HBox width="100%">
+						<mx:Label text="BPM" fontWeight="bold" width="100"/>
+						<mx:NumericStepper stepSize="1" width="100" id="stepperBpm" change="setBpm(event)" minimum="0" maximum="300"/>
+					</mx:HBox>
+				</mx:VBox>
+			</mx:AddChild>
+			<mx:AddChild position="lastChild">
+				<Components:ExposedTileList x="10" y="59" height="410" width="375" id="tileList"
+					dataProvider="{fileCollection}"
+					itemRenderer="ScBox"
+					columnCount="1"
+					itemClick="getSetItemProperties(event);">
+
+				</Components:ExposedTileList>
+			</mx:AddChild>
+			<mx:AddChild position="lastChild">
+				<mx:Button x="254" y="10" label="Upload!" width="125" height="41" cornerRadius="20" fontSize="20" enabled="false" id="btnUpload" click="uploadFiles(event)"/>
+			</mx:AddChild>
+		</mx:State>
+		
+		<mx:State name="access_app" basedOn="authorize_app">
+			<mx:SetProperty target="{btnAuth}" name="label" value="Start uploading!"/>
+			<mx:SetProperty target="{txtMessage}" name="text">
+				<mx:value>If you authorized the app you're now ready to go, click the button above to start uploading!</mx:value>
+			</mx:SetProperty>
+		</mx:State>
+		<mx:State name="access_error" basedOn="authorize_app">
+			<mx:AddChild position="lastChild">
+				<mx:Canvas x="149.5" y="322" width="499" height="105" styleName="error">
+					<mx:Text x="10" y="10" width="477" height="83" styleName="error" id="txtAccessError"/>
+				</mx:Canvas>
+			</mx:AddChild>
+		</mx:State>
+	</mx:states>
+	
+	<mx:Canvas x="10" y="10" width="103" height="41" id="canvasTitle" backgroundColor="#F0F6FB" borderStyle="solid" borderColor="#FFFFFF" cornerRadius="10" alpha="1.0">
+		<mx:Text x="7" y="9" text="Evaporate" color="#333333" fontFamily="Arial" fontSize="16" fontWeight="bold" width="86" height="24" id="txtMainTitle"/>
+	</mx:Canvas>
+	<mx:Style source="style.css"/>
+	
+</mx:WindowedApplication>
